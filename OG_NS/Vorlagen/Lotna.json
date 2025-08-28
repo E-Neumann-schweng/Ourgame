@@ -1,0 +1,51 @@
+{
+    "available_ap": 375,
+    "Charakterdata":{
+        "Name": "Name",
+        "Beruf": "Beruf",
+        "Spezies": "Lotna"
+    },
+    "kopfwerte": {
+        "Intelligenz": 0,
+        "Kraft": 0,
+        "Konstitution": 0,
+        "Charisma": 0,
+        "Intuition": 50,
+        "Fingerfertigkeit": 0
+    },
+    "talentwerte": {
+        "Pflanzenkunde": 0,
+        "Sammeln": 0,
+        "\u00dcberreden": 0,
+        "Menschenkenntnis": 0,
+        "Ablenkung": 0,
+        "Selbstbeherrschung": 25,
+        "Wahrnehmung": 25,
+        "Gassenwissen": 25,
+        "Orientierung": 25,
+        "Tierkunde": 0,
+        "Wildniskunde": 0,
+        "Kriegskunst": 0,
+        "Magiekunde": 50,
+        "Sagen und legenden": 25,
+        "Alchemie": 25,
+        "Heilkunde": 25,
+        "G\u00f6tter und Kulte": 0,
+        "Jagen": 0,
+        "K\u00f6rperbeherrschung": 0,
+        "Kraftakt": 0,
+        "Schwimmen": 0,
+        "Einsch\u00fcchtern": 0,
+        "Fesseln": 0,
+        "Handwerk": 0,
+        "Lebensmittelbearbeitung": 25,
+        "Zechen": 0,
+        "Schl\u00f6sserknacken": 25,
+        "Bet\u00f6ren": 0,
+        "Handel": 0,
+        "Geistesblitz": 25,
+        "Taschendiebstahl": 25,
+        "Verbergen": 25,
+        "Klettern": 25
+    }
+}

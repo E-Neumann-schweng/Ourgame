@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erweiterter Magie-Baukasten</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c1e1e 0%, #3e2b2b 100%);
+            min-height: 100vh;
+            color: #d4c59a;
+            overflow-x: auto;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: #f5deb3;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+            color: #a67c52;
+        }
+
+        .workshop {
+            display: grid;
+            grid-template-columns: 1fr 500px 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .element-library {
+            background: #2b2b2b;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #555555;
+        }
+
+        .combining-area {
+            background: #3e2b2b;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            text-align: center;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #a67c52;
+        }
+
+        .spell-builder {
+            background: #2b2b2b;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid #555555;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            color: #f0e6d2;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #a67c52;
+            padding-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .element, .spell-item {
+            display: inline-block;
+            padding: 12px 20px;
+            margin: 5px;
+            background: linear-gradient(135deg, #a67c52, #c49a6c);
+            color: black;
+            border-radius: 25px;
+            cursor: grab;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(166, 124, 82, 0.3);
+            transition: all 0.3s ease;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            position: relative;
+            font-weight: 500;
+        }
+
+        .element:hover, .spell-item:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(166, 124, 82, 0.5);
+            background: linear-gradient(135deg, #c49a6c, #a67c52);
+        }
+
+        .element:active, .spell-item:active {
+            cursor: grabbing;
+        }
+
+        .element.discovered {
+            background: linear-gradient(135deg, #52a67c, #6cc49a);
+            box-shadow: 0 4px 15px rgba(82, 166, 124, 0.3);
+        }
+
+        .element.discovered:hover {
+            background: linear-gradient(135deg, #6cc49a, #52a67c);
+            box-shadow: 0 8px 25px rgba(82, 166, 124, 0.5);
+        }
+
+        .spell-item {
+            background: linear-gradient(135deg, #a67c52, #8b6a3e);
+            box-shadow: 0 4px 15px rgba(166, 124, 82, 0.3);
+        }
+
+        .effect-type {
+            display: inline-block;
+            padding: 12px 20px;
+            margin: 5px;
+            background: linear-gradient(135deg, #8b5a3e, #a67c52);
+            color: #f5deb3;
+            border-radius: 25px;
+            cursor: grab;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(139, 90, 62, 0.3);
+            transition: all 0.3s ease;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            font-weight: 500;
+        }
+        
+        .ability-type {
+            display: inline-block;
+            padding: 12px 20px;
+            margin: 5px;
+            background: linear-gradient(135deg, #454648, #2b2b2b);
+            color: #d4c59a;
+            border-radius: 25px;
+            cursor: grab;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(69, 70, 72, 0.3);
+            transition: all 0.3s ease;
+            user-select: none;
+            font-weight: 500;
+        }
+
+        .effect-type:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(139, 90, 62, 0.5);
+            background: linear-gradient(135deg, #a67c52, #8b5a3e);
+        }
+        
+        .ability-type:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(69, 70, 72, 0.5);
+            background: linear-gradient(135deg, #2b2b2b, #454648);
+        }
+
+        .universal-drop-zone {
+            border: 3px dashed #a67c52;
+            border-radius: 15px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            min-height: 200px;
+            background: #2b2b2b;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .universal-drop-zone.drag-over {
+            border-color: #52a67c;
+            background: #3e2b2b;
+            border-style: solid;
+        }
+
+        .universal-drop-zone h3 {
+            width: 100%;
+            text-align: center;
+            color: #d4c59a;
+            margin-bottom: 20px;
+        }
+
+        .combination-result {
+            background: linear-gradient(135deg, #52a67c, #6cc49a);
+            color: black;
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 8px 25px rgba(82, 166, 124, 0.3);
+            margin: 20px auto;
+            display: none;
+        }
+
+        .ai-working {
+            background: linear-gradient(135deg, #a67c52, #c49a6c);
+            color: #2b2b2b;
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            margin: 20px auto;
+            display: none;
+            font-weight: 600;
+        }
+
+        .spell-preview {
+            background: #3e2b2b;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #a67c52;
+            text-align: left;
+            color: #d4c59a;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #f0e6d2;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #555555;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            background: #2b2b2b;
+            color: #d4c59a;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #a67c52;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #a67c52, #c49a6c);
+            color: black;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(166, 124, 82, 0.3);
+            background: linear-gradient(135deg, #c49a6c, #a67c52);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #555555;
+            color: #888888;
+        }
+
+        .spell-output {
+            background: #2b2b2b;
+            color: #d4c59a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            border: 1px solid #555555;
+        }
+
+        .api-section {
+            background: #3e2b2b;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #555555;
+        }
+
+        .discovered-spells {
+            background: #3e2b2b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #555555;
+        }
+
+        .element-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #8b5a3e;
+            color: #f5deb3;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .api-section h3 {
+            color: #f0e6d2;
+            margin-bottom: 10px;
+        }
+
+        .discovered-spells h3 {
+            color: #f0e6d2;
+            margin-bottom: 10px;
+        }
+
+        .universal-drop-zone p {
+            color: #a67c52;
+        }
+
+        @media (max-width: 1200px) {
+            .workshop {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧙‍♂️ Erweiterter Magie-Baukasten</h1>
+            <p>Entdecke unendliche Kombinationen durch KI-gestützte Magie-Forschung!</p>
+        </div>
+
+        <div class="workshop">
+            <!-- Element Bibliothek -->
+            <div class="element-library">
+                <h2 class="section-title">📚 Magie-Bibliothek</h2>
+                
+                <div class="api-section">
+                    <h3>🤖 KI-Assistent (Gemini 2.0 Flash)</h3>
+                    <div class="input-group">
+                        <label for="apiKey">API Schlüssel:</label>
+                        <input type="password" id="apiKey" placeholder="Gemini 2.0 Flash API Key">
+                    </div>
+                    <button class="btn" id="testApiBtn" style="font-size: 0.9rem; padding: 8px 16px;">Testen</button>
+                    <div id="apiStatus"></div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h3>Basis-Elemente:</h3>
+                    <div id="discoveredElements">
+                        <div class="element discovered" draggable="true" data-element="Wasser" data-type="element">💧 Wasser</div>
+                        <div class="element discovered" draggable="true" data-element="Feuer" data-type="element">🔥 Feuer</div>
+                        <div class="element discovered" draggable="true" data-element="Erde" data-type="element">🏞️ Erde</div>
+                        <div class="element discovered" draggable="true" data-element="Luft" data-type="element">🌬️ Luft</div>
+                        <div class="element discovered" draggable="true" data-element="Äther" data-type="element">☀️ Äther</div>
+                        <div class="element discovered" draggable="true" data-element="Leere" data-type="element">🌑 Leere</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h3>Entdeckte Elemente (<span id="secondaryCount">0</span>):</h3>
+                    <div id="secondaryElements"></div>
+                </div>
+
+                <div class="discovered-spells">
+                    <h3>Entdeckte Zauber (<span id="spellCount">0</span>):</h3>
+                    <div id="discoveredSpells"></div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h3>Wirkungsarten:</h3>
+                    <div id="effectTypes">
+                        <div class="effect-type" draggable="true" data-effect="Projektil" data-type="effect">🏹 Projektil</div>
+                        <div class="effect-type" draggable="true" data-effect="Aura/Fläche" data-type="effect">🌟 Aura/Fläche</div>
+                        <div class="effect-type" draggable="true" data-effect="Verstärkung" data-type="effect">💪 Verstärkung</div>
+                        <div class="effect-type" draggable="true" data-effect="Erschaffung" data-type="effect">🗿 Erschaffung</div>
+                        <div class="effect-type" draggable="true" data-effect="Transformation" data-type="effect">🔄 Transformation</div>
+                        <div class="effect-type" draggable="true" data-effect="Kontrolle" data-type="effect">🎮 Kontrolle</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h3>Fähigkeitsarten:</h3>
+                    <div id="abilityTypes">
+                        <div class="ability-type" draggable="true" data-ability="Kampf-Manöver" data-type="ability">⚔️ Kampf-Manöver</div>
+                        <div class="ability-type" draggable="true" data-ability="Defensiv-Haltung" data-type="ability">🛡️ Defensiv-Haltung</div>
+                        <div class="ability-type" draggable="true" data-ability="Unterstützung" data-type="ability">🤝 Unterstützung</div>
+                        <div class="ability-type" draggable="true" data-ability="Taktik" data-type="ability">♟️ Taktik</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Kombinationsbereich -->
+            <div class="combining-area">
+                <h2 class="section-title">⚗️ Universeller Experimentierlabor</h2>
+                
+                <div class="universal-drop-zone" id="universalDropZone">
+                    <h3>Ziehe beliebige Kombinationen hierher</h3>
+                    <p style="color: #a67c52; font-size: 0.9rem;">Elemente, Zauber und Wirkungsarten können frei kombiniert werden</p>
+                    <div id="experimentComponents"></div>
+                </div>
+
+                <div class="ai-working" id="aiWorking">
+                    🧠 KI analysiert Kombination...
+                </div>
+
+                <div class="combination-result" id="combinationResult">
+                    🎉 Neue Entdeckung!
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn" id="processBtn" disabled>Experiment durchführen</button>
+                    <button class="btn" id="clearBtn">Labor leeren</button>
+                </div>
+            </div>
+
+            <!-- Zauber Builder -->
+            <div class="spell-builder">
+                <h2 class="section-title">📜 Zauber-Details</h2>
+                
+                <div class="input-group">
+                    <label for="creativeInput">Kreative Einflüsse (Stichwörter):</label>
+                    <textarea id="creativeInput" rows="3" placeholder="z.B. 'explosiv, präzise, heimlich' oder 'für Heiler, schwach aber sicher'..."></textarea>
+                    <small style="color: #a67c52;">Diese Stichwörter beeinflussen die KI-Generierung, aber der Zauber bleibt ausbalanciert.</small>
+                </div>
+
+                <div id="spellPreview" class="spell-preview" style="display: none;">
+                    <h3>📋 Aktueller Zauber:</h3>
+                    <div id="currentSpellDisplay"></div>
+                </div>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px;">
+                    <button class="btn" id="generateBtn" disabled>🧙‍♂️ Zauber generieren</button>
+                    <button class="btn" id="exportBtn" disabled>💾 JSON Export</button>
+                    <button class="btn" id="resetBtn">🔄 Alles zurücksetzen</button>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h3>🔥 JSON Import:</h3>
+                    <textarea id="jsonImport" rows="4" placeholder="Füge einen Zauber-JSON hier ein..."></textarea>
+                    <button class="btn" id="importBtn">Importieren</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="spellOutput" class="spell-output" style="display:none;"></div>
+    </div>
+
+    <script>
+        // Globale Variablen
+        let discoveredSecondaryElements = new Set();
+        let discoveredSpells = new Map();
+        let experimentComponents = [];
+        let currentSpell = null;
+        let apiKey = '';
+
+        // Basis-Elemente sind immer verfügbar
+        const baseElements = ['Wasser', 'Feuer', 'Erde', 'Luft', 'Äther', 'Leere'];
+        
+        // Vordefinierte Kombinationen für den Start
+        const predefinedCombinations = {
+            'Feuer+Wasser': { name: 'Blut', emoji: '🩸' },
+            'Erde+Wasser': { name: 'Schlamm', emoji: '🪨' },
+            'Luft+Wasser': { name: 'Tsunami', emoji: '🌊' },
+            'Äther+Wasser': { name: 'Heilung', emoji: '✨' },
+            'Leere+Wasser': { name: 'Eis', emoji: '❄️' },
+            'Erde+Feuer': { name: 'Magma', emoji: '🌋' },
+            'Feuer+Luft': { name: 'Dampf', emoji: '💨' },
+            'Äther+Feuer': { name: 'Vision', emoji: '👁️' },
+            'Feuer+Leere': { name: 'Dämonie', emoji: '👿' },
+            'Erde+Luft': { name: 'Sand', emoji: '🏜️' },
+            'Äther+Erde': { name: 'Pflanzen', emoji: '🌿' },
+            'Erde+Leere': { name: 'Stille', emoji: '🤫' },
+            'Äther+Luft': { name: 'Geist', emoji: '👻' },
+            'Leere+Luft': { name: 'Krankheit', emoji: '🤢' },
+            'Äther+Leere': { name: 'Beschwörung', emoji: ' summoning ' },
+            'Eis+Feuer': { name: 'Blitz', emoji: '⚡' },
+            'Krankheit+Pflanzen': { name: 'Untot', emoji: '🧟' }
+        };
+
+        // Funktion zum Anzeigen von Nachrichten
+        function showMessage(message, type = 'info') {
+            const resultDiv = document.getElementById('combinationResult');
+            const aiWorking = document.getElementById('aiWorking');
+            aiWorking.style.display = 'none';
+
+            let bgColor, textColor;
+            if (type === 'error') {
+                bgColor = 'linear-gradient(135deg, #8b5a3e, #a67c52)';
+                textColor = '#f5deb3';
+            } else if (type === 'success') {
+                bgColor = 'linear-gradient(135deg, #52a67c, #6cc49a)';
+                textColor = 'black';
+            } else {
+                bgColor = 'linear-gradient(135deg, #a67c52, #c49a6c)';
+                textColor = 'black';
+            }
+
+            resultDiv.innerHTML = message;
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = bgColor;
+            resultDiv.style.color = textColor;
+        }
+
+        // Event Listeners Setup
+        function setupEventListeners() {
+            const testBtn = document.getElementById('testApiBtn');
+            if (testBtn) {
+                testBtn.addEventListener('click', testApi);
+            }
+            
+            const processBtn = document.getElementById('processBtn');
+            if (processBtn) {
+                processBtn.addEventListener('click', processExperiment);
+            }
+            
+            const clearBtn = document.getElementById('clearBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', clearExperiment);
+            }
+            
+            const generateBtn = document.getElementById('generateBtn');
+            if (generateBtn) {
+                generateBtn.addEventListener('click', generateSpellWithAI);
+            }
+            
+            const exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', exportSpell);
+            }
+            
+            const resetBtn = document.getElementById('resetBtn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', resetAll);
+            }
+            
+            const importBtn = document.getElementById('importBtn');
+            if (importBtn) {
+                importBtn.addEventListener('click', importSpell);
+            }
+        }
+
+        function setupDragAndDrop() {
+            document.addEventListener('dragstart', function(e) {
+                const target = e.target;
+                if (target.dataset.element || target.dataset.effect || target.dataset.ability || target.dataset.spell) {
+                    e.dataTransfer.setData('text/plain', target.dataset.element || target.dataset.effect || target.dataset.ability || target.dataset.spell);
+                    e.dataTransfer.setData('itemType', target.dataset.type);
+                }
+            });
+
+            const dropZone = document.getElementById('universalDropZone');
+            
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', async function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                
+                const itemName = e.dataTransfer.getData('text/plain');
+                const itemType = e.dataTransfer.getData('itemType');
+                
+                // Erlaubt das Hinzufügen von Duplikaten
+                experimentComponents.push({
+                    name: itemName,
+                    type: itemType
+                });
+                
+                updateExperimentDisplay();
+
+                if (experimentComponents.length >= 2) {
+                    await processExperiment();
+                }
+            });
+        }
+
+        function updateExperimentDisplay() {
+            const componentsDiv = document.getElementById('experimentComponents');
+            const processBtn = document.getElementById('processBtn');
+            
+            if (experimentComponents.length === 0) {
+                componentsDiv.innerHTML = '<h3>Ziehe beliebige Kombinationen hierher</h3><p style="color: #a67c52; font-size: 0.9rem;">Elemente, Zauber und Wirkungsarten können frei kombiniert werden</p>';
+                processBtn.disabled = true;
+                return;
+            }
+            
+            componentsDiv.innerHTML = '';
+            experimentComponents.forEach((comp, index) => {
+                const div = document.createElement('div');
+                
+                if (comp.type === 'element') {
+                    div.className = 'element';
+                    div.innerHTML = `${getElementEmoji(comp.name)} ${comp.name} <span class="element-count" onclick="removeFromExperiment(${index})">×</span>`;
+                } else if (comp.type === 'effect') {
+                    div.className = 'effect-type';
+                    div.innerHTML = `${getEffectEmoji(comp.name)} ${comp.name} <span class="element-count" onclick="removeFromExperiment(${index})">×</span>`;
+                } else if (comp.type === 'ability') {
+                    div.className = 'ability-type';
+                    div.innerHTML = `${getAbilityEmoji(comp.name)} ${comp.name} <span class="element-count" onclick="removeFromExperiment(${index})">×</span>`;
+                } else if (comp.type === 'spell') {
+                    div.className = 'spell-item';
+                    div.innerHTML = `🔮 ${comp.name} <span class="element-count" onclick="removeFromExperiment(${index})">×</span>`;
+                }
+                
+                componentsDiv.appendChild(div);
+            });
+            
+            processBtn.disabled = !(experimentComponents.length >= 2 || (experimentComponents.length >= 1 && apiKey));
+        }
+
+        window.removeFromExperiment = function(index) {
+            experimentComponents.splice(index, 1);
+            updateExperimentDisplay();
+        };
+
+        function clearExperiment() {
+            experimentComponents = [];
+            updateExperimentDisplay();
+            document.getElementById('combinationResult').style.display = 'none';
+            document.getElementById('aiWorking').style.display = 'none';
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function processExperiment() {
+            if (experimentComponents.length < 1) {
+                return;
+            }
+            
+            const aiWorking = document.getElementById('aiWorking');
+            aiWorking.style.display = 'block';
+            document.getElementById('combinationResult').style.display = 'none';
+            
+            try {
+                const componentTypes = experimentComponents.map(c => c.type);
+                const hasSpell = componentTypes.includes('spell');
+                const hasElement = componentTypes.includes('element');
+                const hasEffect = componentTypes.includes('effect');
+                const hasAbility = componentTypes.includes('ability');
+                const numElements = experimentComponents.filter(c => c.type === 'element').length;
+                const numSpells = experimentComponents.filter(c => c.type === 'spell').length;
+                
+                // Case 1: Elements + Elements -> new Element
+                if (numElements >= 2 && !hasEffect && !hasAbility && !hasSpell) {
+                    const sortedComponents = experimentComponents.map(c => c.name).sort();
+                    const key = sortedComponents.join('+');
+                    const predefined = predefinedCombinations[key];
+                    
+                    if (predefined && !discoveredSecondaryElements.has(predefined.name)) {
+                        discoveredSecondaryElements.add(predefined.name);
+                        showMessage(`🎉 Neues Element entdeckt!<br>${predefined.emoji} ${predefined.name}`, 'success');
+                        updateDisplays();
+                    } else {
+                        if (!apiKey) {
+                            throw new Error('KI-API nicht verfügbar. Bitte API-Schlüssel eingeben und testen.');
+                        }
+                        const result = await generateWithAI(experimentComponents, 'element');
+                        discoveredSecondaryElements.add(result.name);
+                        showMessage(`🎉 Neues Element entdeckt!<br>${result.emoji} ${result.name}`, 'success');
+                        updateDisplays();
+                    }
+                    return;
+                }
+                
+                // Case 2: Combination of Spells
+                if (numSpells >= 2 && !hasElement && !hasEffect && !hasAbility) {
+                     if (!apiKey) {
+                        throw new Error('KI-API nicht verfügbar. Bitte API-Schlüssel eingeben und testen.');
+                    }
+                    const result = await generateWithAI(experimentComponents, 'spell_combination');
+                    discoveredSpells.set(result.name, result);
+                    currentSpell = result;
+                    displaySpell(result);
+                    updateDisplays();
+                    document.getElementById('exportBtn').disabled = false;
+                    showMessage(`✨ Neuer kombinierter Zauber entdeckt!<br>🔮 ${result.name}`, 'success');
+                    return;
+                }
+
+                // Case 3: Elements + Effects/Abilities -> new Spell/Ability
+                if ((hasElement && hasEffect) || (hasElement && hasAbility) || (hasSpell && (hasElement || hasEffect || hasAbility))) {
+                     if (!apiKey) {
+                        throw new Error('KI-API nicht verfügbar. Bitte API-Schlüssel eingeben und testen.');
+                    }
+                    const result = await generateWithAI(experimentComponents, hasEffect ? 'spell' : 'ability');
+                    discoveredSpells.set(result.name, result);
+                    currentSpell = result;
+                    displaySpell(result);
+                    updateDisplays();
+                    document.getElementById('exportBtn').disabled = false;
+                    showMessage(`✨ Neue ${hasEffect ? 'Zauber' : 'Fähigkeit'} entdeckt!<br>🔮 ${result.name}`, 'success');
+                    return;
+                }
+                
+                showMessage('Ungültige Kombination. Ziehe mindestens zwei Elemente oder eine Kombination aus Element/Zauber/Wirkungsart.', 'error');
+                
+            } catch (error) {
+                showMessage(`⚠ Fehler: ${error.message}`, 'error');
+            } finally {
+                aiWorking.style.display = 'none';
+            }
+        }
+        
+        async function generateWithAI(components, resultType) {
+            const componentNames = components.map(c => `${c.name} (${c.type})`).join(', ');
+            let level = 0;
+            let manaCost = 0;
+            
+            if (resultType === 'spell_combination') {
+                for (const component of components) {
+                    if (component.type === 'spell') {
+                        const spellData = discoveredSpells.get(component.name);
+                        if (spellData) {
+                            level += spellData.level;
+                            manaCost += spellData.mana_kosten;
+                        }
+                    }
+                }
+            } else {
+                const numComponents = components.length;
+                level = Math.max(0, numComponents - 1);
+                manaCost = level > 0 ? level : 1; 
+            }
+            
+
+            let prompt = `Du bist ein Experte für das Tabletop-RPG-Magie-System des Nutzers.
+            
+            Systemregeln:
+            - Die Welt benutzt ein d10-Würfelsystem.
+            - Die 10 Seiten des Würfels sind belegt mit Kritischer Erfolg (1), Kritischer Misserfolg (10), Angriff (A), Verteidigung (V) oder Mana (M).
+            - Mana ist notwendig, um Zauber oder Fähigkeiten zu wirken.
+            - Zauber sind magische Effekte, Fähigkeiten sind nicht-magische, kampfspezifische Aktionen.
+            - Das Level eines Zaubers/einer Fähigkeit berechnet sich als (Anzahl der Bausteine - 1). Vordefinierte Elemente (z.B. Blut) zählen als 1 Baustein.
+            - Zauber/Fähigkeiten mit Level 1 kosten 1 Mana.
+            - Kritischer Erfolg ist nur auf dem d10-Waffenwürfel möglich. Man kann keinen spezifischen "Kritischen Erfolg auf Verteidigung" bekommen.
+            - Alle Würfel werden gleichzeitig am Anfang der Runde gewürfelt. Reaktive Effekte müssen sich auf diese initialen Würfe beziehen.
+            - Beim Kombinieren von Zaubern ergibt das neue Zauberlevel die Summe der Zauberlevel.
+            - Beim Kombinieren von Zaubern ist der neue Zauber die Summe der Bausteine und Effekte der ursprünglichen Zauber.
+            - Wenn zwei identische Zauber kombiniert werden, entsteht eine stärkere Version dieses Zaubers.
+
+            Komponenten für Experiment: ${componentNames}
+            
+            ${resultType === 'element' ? `
+            Aufgabe: Erschaffe ein neues Element, indem du die obigen Komponenten kombinierst.
+            Antwortformat:
+            {
+              "type": "element",
+              "name": "Elementname",
+              "emoji": "🔥",
+              "description": "Kurze Beschreibung"
+            }
+            ` : `
+            Aufgabe: Erschaffe einen neuen ${resultType === 'spell_combination' ? 'Zauber' : resultType} basierend auf den Komponenten.
+            Antwortformat:
+            {
+              "name": "Kreativer Name",
+              "type": "${resultType === 'spell_combination' ? 'spell' : resultType}",
+              "level": ${level},
+              "mana_kosten": ${manaCost},
+              "bausteine": ["Baustein1", "Baustein2", "etc"],
+              "kurzbeschreibung": "Kurze kreative Beschreibung",
+              "beschreibung": "Detaillierte Beschreibung mit Atmosphäre",
+              "effekt": "Mechanische Spielregeln, die sich auf Angriffs(A), Verteidigungs(V) oder Mana(M) Würfe beziehen. Benutze keinen Kritischen Erfolg auf Verteidigung. Beschreibe keine reaktiven Effekte die während einer Verteidigungsaktion passieren.",
+              "schaden": "2W6+1" oder "Variabel",
+              "rettungswurf_gegner": "Geschicklichkeit/Konstitution/etc",
+              "reaktiver_effekt": "Spezialeffekt basierend auf Würfelergebnissen zu Rundenbeginn. Benutze keinen Kritischen Erfolg auf Verteidigung. Beschreibe keine reaktiven Effekte die während einer Verteidigungsaktion passieren."
+            }
+            `}`;
+            
+            const payload = {
+                contents: [{
+                    parts: [{ text: prompt }]
+                }],
+                generationConfig: {
+                    temperature: 0.8,
+                    maxOutputTokens: 2048
+                }
+            };
+            
+            const maxRetries = 5;
+            const initialDelay = 1000;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 429) {
+                        const delay = initialDelay * Math.pow(2, i);
+                        console.log(`Rate limit exceeded. Retrying in ${delay}ms...`);
+                        await sleep(delay);
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error.message);
+                    }
+
+                    let aiResponse = data.candidates[0].content.parts[0].text.trim();
+                    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) {
+                        throw new Error('KI-Antwort enthält kein gültiges JSON-Objekt.');
+                    }
+                    aiResponse = jsonMatch[0];
+
+                    const generatedData = JSON.parse(aiResponse);
+                    
+                    if (resultType !== 'spell_combination') {
+                        generatedData.level = level;
+                        generatedData.mana_kosten = manaCost;
+                    } else {
+                        generatedData.level = level;
+                        generatedData.mana_kosten = manaCost;
+                    }
+                    
+                    return generatedData;
+
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                }
+            }
+        }
+        
+        async function generateSpellWithAI() {
+             await generateWithAI(experimentComponents, 'spell');
+        }
+
+        function displaySpell(spell) {
+            const output = document.getElementById('spellOutput');
+            const preview = document.getElementById('spellPreview');
+            const display = document.getElementById('currentSpellDisplay');
+            
+            const bausteineStr = spell.bausteine ? spell.bausteine.map(b => `"${b}"`).join(', ') : 'Keine Bausteine';
+            
+            const spellJson = JSON.stringify(spell, null, 2);
+            
+            display.innerHTML = `
+                <h4>${spell.type === 'spell' ? '🔮 Zauber' : '⚔️ Fähigkeit'}: ${spell.name} (Level ${spell.level})</h4>
+                <p><strong>Bausteine:</strong> ${bausteineStr}</p>
+                <p><strong>Mana-Kosten:</strong> ${spell.mana_kosten}</p>
+                <p><strong>Kurzbeschreibung:</strong> ${spell.kurzbeschreibung || 'Nicht verfügbar'}</p>
+                <p><strong>Schaden:</strong> ${spell.schaden || 'Variabel'}</p>
+            `;
+            preview.style.display = 'block';
+            
+            output.innerHTML = `╔═══════════════════════════════════════════════════════
+${spell.type === 'spell' ? '🧙‍♂️ ZAUBER' : '⚔️ FÄHIGKEIT'}: ${spell.name} (Level ${spell.level})
+╚═══════════════════════════════════════════════════════
+📋 DETAILS:
+• Typ: ${spell.type === 'spell' ? 'Zauber' : 'Fähigkeit'}
+• Bausteine: ${bausteineStr}
+• Level: ${spell.level}
+• Mana-Kosten: ${spell.mana_kosten}
+• Schaden: ${spell.schaden || 'Variabel'}
+
+💫 KURZBESCHREIBUNG:
+${spell.kurzbeschreibung || 'Nicht verfügbar'}
+
+📖 BESCHREIBUNG:
+${spell.beschreibung || 'Nicht verfügbar'}
+
+⚡ EFFEKT:
+${spell.effekt || 'Nicht verfügbar'}
+
+🎲 RETTUNGSWURF:
+${spell.rettungswurf_gegner || 'Nicht verfügbar'}
+
+✨ REAKTIVER EFFEKT:
+${spell.reaktiver_effekt || 'Nicht verfügbar'}
+
+═══════════════════════════════════════════════════════
+JSON Format:
+${spellJson}`;
+            
+            output.style.display = 'block';
+        }
+
+        function exportSpell() {
+            if (!currentSpell) {
+                showMessage('⚠️ Bitte erstellen Sie zuerst einen Zauber!', 'error');
+                return;
+            }
+            
+            const json = JSON.stringify(currentSpell, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSpell.name.replace(/[^a-z0-9]/gi, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showMessage('💾 Zauber erfolgreich exportiert!', 'success');
+        }
+
+        function importSpell() {
+            const jsonText = document.getElementById('jsonImport').value.trim();
+            if (!jsonText) {
+                showMessage('⚠️ Bitte fügen Sie JSON-Daten ein!', 'error');
+                return;
+            }
+            
+            try {
+                const spell = JSON.parse(jsonText);
+                
+                if (!spell.name) {
+                    throw new Error('Ungültiges Zauber-Format: Name fehlt');
+                }
+                
+                currentSpell = spell;
+                discoveredSpells.set(spell.name, spell);
+                displaySpell(spell);
+                updateDisplays();
+                
+                document.getElementById('exportBtn').disabled = false;
+                document.getElementById('jsonImport').value = '';
+                
+                showMessage('✨ Zauber erfolgreich importiert!', 'success');
+                
+            } catch (error) {
+                showMessage(`Import-Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        function resetAll() {
+            experimentComponents = [];
+            currentSpell = null;
+            
+            updateExperimentDisplay();
+            document.getElementById('spellPreview').style.display = 'none';
+            document.getElementById('spellOutput').style.display = 'none';
+            document.getElementById('combinationResult').style.display = 'none';
+            document.getElementById('aiWorking').style.display = 'none';
+            document.getElementById('creativeInput').value = '';
+            document.getElementById('jsonImport').value = '';
+            document.getElementById('exportBtn').disabled = true;
+            document.getElementById('generateBtn').disabled = !apiKey;
+        }
+
+        function getElementEmoji(element) {
+            const emojiMap = {
+                'Wasser': '💧', 'Feuer': '🔥', 'Erde': '🏞️', 'Luft': '🌬️', 
+                'Äther': '☀️', 'Leere': '🌑', 'Blut': '🩸', 'Schlamm': '🪨',
+                'Tsunami': '🌊', 'Magma': '🌋', 'Dampf': '💨', 'Sand': '🏜️',
+                'Heilung': '✨', 'Eis': '❄️', 'Vision': '👁️', 'Dämonie': '👿',
+                'Pflanzen': '🌿', 'Stille': '🤫', 'Geist': '👻', 'Krankheit': '🤢',
+                'Beschwörung': ' summoning ' , 'Blitz': '⚡', 'Untot': '🧟'
+            };
+            return emojiMap[element] || '🔮';
+        }
+
+        function getEffectEmoji(effect) {
+            const emojiMap = {
+                'Projektil': '🏹', 'Aura/Fläche': '🌟', 'Verstärkung': '💪',
+                'Erschaffung': '🗿', 'Transformation': '🔄', 'Kontrolle': '🎮'
+            };
+            return emojiMap[effect] || '🎯';
+        }
+
+        function getAbilityEmoji(ability) {
+            const emojiMap = {
+                'Kampf-Manöver': '⚔️', 'Defensiv-Haltung': '🛡️', 'Unterstützung': '🤝', 'Taktik': '♟️'
+            };
+            return emojiMap[ability] || '✨';
+        }
+        
+        function updateDisplays() {
+            updateSecondaryElements();
+            updateDiscoveredSpells();
+        }
+
+        function updateSecondaryElements() {
+            const container = document.getElementById('secondaryElements');
+            const counter = document.getElementById('secondaryCount');
+            
+            container.innerHTML = '';
+            discoveredSecondaryElements.forEach(elementName => {
+                const div = document.createElement('div');
+                div.className = 'element discovered';
+                div.draggable = true;
+                div.dataset.element = elementName;
+                div.dataset.type = 'element';
+                div.innerHTML = `${getElementEmoji(elementName)} ${elementName}`;
+                container.appendChild(div);
+            });
+            
+            counter.textContent = discoveredSecondaryElements.size;
+        }
+
+        function updateDiscoveredSpells() {
+            const container = document.getElementById('discoveredSpells');
+            const counter = document.getElementById('spellCount');
+            
+            container.innerHTML = '';
+            discoveredSpells.forEach((spellData, spellName) => {
+                const div = document.createElement('div');
+                div.className = 'spell-item';
+                div.draggable = true;
+                div.dataset.spell = spellName;
+                div.dataset.type = 'spell';
+                div.innerHTML = `🔮 ${spellName}`;
+                div.onclick = function() {
+                    selectSpell(spellName);
+                };
+                container.appendChild(div);
+            });
+            
+            counter.textContent = discoveredSpells.size;
+        }
+
+        window.selectSpell = function(spellName) {
+            const spellData = discoveredSpells.get(spellName);
+            if (spellData) {
+                currentSpell = spellData;
+                displaySpell(currentSpell);
+            }
+        };
+
+        function testApi() {
+            console.log('testApi function called');
+            const key = document.getElementById('apiKey').value.trim();
+            const statusDiv = document.getElementById('apiStatus');
+            if (!key) {
+                statusDiv.innerHTML = '<p style="color: red;">⚠️ Bitte API-Schlüssel eingeben.</p>';
+                return;
+            }
+            statusDiv.innerHTML = '<p style="color: blue;">🔄 API wird getestet...</p>';
+            const testPayload = {
+                contents: [{
+                    parts: [{
+                        text: "Hallo! Dies ist ein Test der Gemini 2.0 Flash API."
+                    }]
+                }]
+            };
+
+            fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${key}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(testPayload)
+            })
+            .then(response => {
+                console.log('API Response Status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('API Response Data:', data);
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+                apiKey = key;
+                statusDiv.innerHTML = '<p style="color: green;">✅ Gemini 2.0 Flash API erfolgreich getestet!</p>';
+                const generateBtn = document.getElementById('generateBtn');
+                if (generateBtn) {
+                    generateBtn.disabled = false;
+                }
+                updateExperimentDisplay();
+            })
+            .catch(error => {
+                console.error('API Test Error:', error);
+                statusDiv.innerHTML = `<p style="color: red;">❌ API-Fehler: ${error.message}</p>`;
+                apiKey = '';
+                const generateBtn = document.getElementById('generateBtn');
+                if (generateBtn) {
+                    generateBtn.disabled = true;
+                }
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            setupDragAndDrop();
+            setupEventListeners();
+            updateDisplays();
+        });
+    </script>
+</body>
+</html>
