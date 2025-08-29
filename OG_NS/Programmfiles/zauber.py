@@ -5,12 +5,10 @@ import json
 import requests
 import time
 import threading
+import os
 from typing import Dict, List, Set, Optional, Any
-from global_config import THEME_COLORS
-
-# Configure CustomTkinter
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+from global_config import THEME_COLORS, get_paths
+import re
 
 class MagicWorkshop:
     def __init__(self):
@@ -19,8 +17,16 @@ class MagicWorkshop:
         self.root.geometry("1400x900")
         
         # Data storage
-        self.discovered_secondary_elements: Set[str] = set()
-        self.discovered_spells: Dict[str, Dict] = {}
+        self.predefined_data = {}
+        self.discovered_data = {
+            "entdeckte_elemente": [],
+            "entdeckte_zauber": {}
+        }
+        
+        self.load_all_data()
+
+        self.discovered_secondary_elements: Set[str] = set(self.discovered_data.get("entdeckte_elemente", []))
+        self.discovered_spells: Dict[str, Dict] = self.discovered_data.get("entdeckte_zauber", {})
         self.experiment_components: List[Dict] = []
         self.current_spell: Optional[Dict] = None
         self.api_key: str = ""
@@ -29,43 +35,171 @@ class MagicWorkshop:
         self.dragged_item_data = None
         self.drag_window = None
         
-        # Base elements
-        self.base_elements = ['Wasser', 'Feuer', 'Erde', 'Luft', 'Äther', 'Leere']
+        # Data from loaded JSON
+        self.base_elements = self.predefined_data.get("basis_elemente", [])
+        self.predefined_combinations = self.predefined_data.get("element_kombinationen", {})
+        self.element_emojis = self.predefined_data.get("element_emojis", {})
+        self.predefined_spells = self.predefined_data.get("vordefinierte_zauber", {})
+        self.effect_types = self.predefined_data.get("wirkungsarten", [])
+        self.ability_types = self.predefined_data.get("faehigkeitsarten", [])
         
-        # Predefined combinations
-        self.predefined_combinations = {
-            'Feuer+Wasser': {'name': 'Blut', 'emoji': '🩸'},
-            'Erde+Wasser': {'name': 'Schlamm', 'emoji': '🪨'},
-            'Luft+Wasser': {'name': 'Tsunami', 'emoji': '🌊'},
-            'Äther+Wasser': {'name': 'Heilung', 'emoji': '✨'},
-            'Leere+Wasser': {'name': 'Eis', 'emoji': '❄️'},
-            'Erde+Feuer': {'name': 'Magma', 'emoji': '🌋'},
-            'Feuer+Luft': {'name': 'Dampf', 'emoji': '💨'},
-            'Äther+Feuer': {'name': 'Vision', 'emoji': '👁️'},
-            'Feuer+Leere': {'name': 'Dämonie', 'emoji': '👿'},
-            'Erde+Luft': {'name': 'Sand', 'emoji': '🏜️'},
-            'Äther+Erde': {'name': 'Pflanzen', 'emoji': '🌿'},
-            'Erde+Leere': {'name': 'Stille', 'emoji': '🤫'},
-            'Äther+Luft': {'name': 'Geist', 'emoji': '👻'},
-            'Leere+Luft': {'name': 'Krankheit', 'emoji': '🤢'},
-            'Äther+Leere': {'name': 'Beschwörung', 'emoji': '🔮'},
-            'Eis+Feuer': {'name': 'Blitz', 'emoji': '⚡'},
-            'Krankheit+Pflanzen': {'name': 'Untot', 'emoji': '🧟'}
-        }
-        
-        # Element emojis
-        self.element_emojis = {
-            'Wasser': '💧', 'Feuer': '🔥', 'Erde': '🏞️', 'Luft': '🌬️', 
-            'Äther': '☀️', 'Leere': '🌑', 'Blut': '🩸', 'Schlamm': '🪨',
-            'Tsunami': '🌊', 'Magma': '🌋', 'Dampf': '💨', 'Sand': '🏜️',
-            'Heilung': '✨', 'Eis': '❄️', 'Vision': '👁️',
-            'Dämonie': '👿',
-            'Pflanzen': '🌿', 'Stille': '🤫', 'Geist': '👻', 'Krankheit': '🤢',
-            'Beschwörung': '🔮', 'Blitz': '⚡', 'Untot': '🧟'
-        }
+        # Add predefined elements from combinations to discovered list at startup
+        for combo in self.predefined_combinations.values():
+            if combo["name"] not in self.discovered_secondary_elements:
+                self.discovered_secondary_elements.add(combo["name"])
         
         self.setup_ui()
+        self.update_displays()
 
+    # --- Data Management Functions ---
+    def load_all_data(self):
+        _, character_dir, _ = get_paths()
+        self.data_dir = os.path.join(character_dir, "..", "Daten")
+        self.predefined_file = os.path.join(self.data_dir, "vordefinierte_magie.json")
+        self.discovered_file = os.path.join(self.data_dir, "entdeckte_magie.json")
+
+        self.create_data_directory()
+        self.load_predefined_data()
+        self.load_discovered_data()
+
+    def create_data_directory(self):
+        if not os.path.exists(self.data_dir):
+            os.makedirs(self.data_dir)
+            
+    def load_predefined_data(self):
+        try:
+            if not os.path.exists(self.predefined_file):
+                print(f"Datei '{self.predefined_file}' nicht gefunden. Erstelle eine neue Standarddatei.")
+                self.create_initial_predefined_file()
+            
+            with open(self.predefined_file, 'r', encoding='utf-8') as f:
+                self.predefined_data = json.load(f)
+        except Exception as e:
+            print(f"Fehler beim Laden von '{self.predefined_file}': {e}")
+            self.predefined_data = {}
+
+    def load_discovered_data(self):
+        try:
+            if not os.path.exists(self.discovered_file):
+                self.save_discovered_data()
+            
+            with open(self.discovered_file, 'r', encoding='utf-8') as f:
+                self.discovered_data = json.load(f)
+        except Exception as e:
+            print(f"Fehler beim Laden von '{self.discovered_file}': {e}")
+            self.discovered_data = {
+                "entdeckte_elemente": [],
+                "entdeckte_zauber": {}
+            }
+            self.save_discovered_data()
+
+    def save_discovered_data(self):
+        try:
+            with open(self.discovered_file, 'w', encoding='utf-8') as f:
+                json.dump(self.discovered_data, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Fehler beim Speichern von '{self.discovered_file}': {e}")
+
+    def create_initial_predefined_file(self):
+        initial_data = {
+            "basis_elemente": [
+                "Wasser", "Feuer", "Erde", "Luft", "Äther", "Leere"
+            ],
+            "element_emojis": {
+                'Wasser': '💧', 'Feuer': '🔥', 'Erde': '🏞️', 'Luft': '🌬️', 
+                'Äther': '☀️', 'Leere': '🌑', 'Blut': '🩸', 'Schlamm': '🪨',
+                'Tsunami': '🌊', 'Magma': '🌋', 'Dampf': '💨', 'Sand': '🏜️',
+                'Heilung': '✨', 'Eis': '❄️', 'Vision': '👁️', 'Dämonie': '👿',
+                'Pflanzen': '🌿', 'Stille': '🤫', 'Geist': '👻', 'Krankheit': '🤢',
+                'Beschwörung': '🔮', 'Blitz': '⚡', 'Untot': '🧟', 'custom_input': '✍️'
+            },
+            "element_kombinationen": {
+                "Feuer+Wasser": {"name": "Blut", "emoji": "🩸"}, "Erde+Wasser": {"name": "Schlamm", "emoji": "🪨"},
+                "Luft+Wasser": {"name": "Tsunami", "emoji": "🌊"}, "Äther+Wasser": {"name": "Heilung", "emoji": "✨"},
+                "Leere+Wasser": {"name": "Eis", "emoji": "❄️"}, "Erde+Feuer": {"name": "Magma", "emoji": "🌋"},
+                "Feuer+Luft": {"name": "Dampf", "emoji": "💨"}, "Äther+Feuer": {"name": "Vision", "emoji": "👁️"},
+                "Feuer+Leere": {"name": "Dämonie", "emoji": "👿"}, "Erde+Luft": {"name": "Sand", "emoji": "🏜️"},
+                "Äther+Erde": {"name": "Pflanzen", "emoji": "🌿"}, "Erde+Leere": {"name": "Stille", "emoji": "🤫"},
+                "Äther+Luft": {"name": "Geist", "emoji": "👻"}, "Leere+Luft": {"name": "Krankheit", "emoji": "🤢"},
+                "Äther+Leere": {"name": "Beschwörung", "emoji": "🔮"}, "Eis+Feuer": {"name": "Blitz", "emoji": "⚡"},
+                "Krankheit+Pflanzen": {"name": "Untot", "emoji": "🧟"}
+            },
+            "vordefinierte_zauber": {
+                 "Heilende Berührung": {
+                    "name": "Heilende Berührung", "type": "spell", "level": 1, "mana_kosten": 1,
+                    "bausteine": ["Heilung"], "kurzbeschreibung": "Heilt Wunden bei Berührung.",
+                    "beschreibung": "Ein sanfter Glanz umhüllt die Hand des Zaubernden, wenn er Verwundungen heilt.",
+                    "effekt": "Bei Berührung eines Ziels werden 1W4 Trefferpunkte geheilt. Kann in einer Runde nur einmal pro Ziel angewendet werden.",
+                    "schaden": "0", "rettungswurf_gegner": "Kein", "reaktiver_effekt": "Keiner"
+                }
+            },
+            "wirkungsarten": [
+                ["Projektil", "🏹"], ["Aura/Fläche", "🌟"], ["Verstärkung", "💪"],
+                ["Erschaffung", "🗿"], ["Transformation", "🔄"], ["Kontrolle", "🎮"]
+            ],
+            "faehigkeitsarten": [
+                ["Kampf-Manöver", "⚔️"], ["Defensiv-Haltung", "🛡️"], 
+                ["Unterstützung", "🤝"], ["Taktik", "♟️"]
+            ],
+            "freischalt_codes": {
+                "PFLANZE123": {"name": "Pflanzen", "type": "element"},
+                "SCHATTEN888": {"name": "Schattenkugel", "type": "spell", "data": {
+                        "name": "Schattenkugel", "type": "spell", "level": 2, "mana_kosten": 3,
+                        "bausteine": ["Leere", "Projektil"], "kurzbeschreibung": "Eine Kugel aus purer Dunkelheit.",
+                        "beschreibung": "Eine Kugel aus purer Dunkelheit, die auf ein Ziel zugeschleudert wird.",
+                        "effekt": "Ein erfolgreicher Angriffswurf verursacht 2W6+3 Schaden.",
+                        "schaden": "2W6+3", "rettungswurf_gegner": "Konstitution", "reaktiver_effekt": "Keiner"
+                    }
+                },
+                "ENTLADUNG42": {"name": "Blitz", "type": "element"}
+            }
+        }
+        with open(self.predefined_file, 'w', encoding='utf-8') as f:
+            json.dump(initial_data, f, indent=4, ensure_ascii=False)
+            
+    def add_discovered_element(self, element_name: str):
+        if element_name not in self.discovered_data["entdeckte_elemente"]:
+            self.discovered_data["entdeckte_elemente"].append(element_name)
+            self.save_discovered_data()
+
+    def add_discovered_spell(self, spell_data: Dict):
+        spell_name = spell_data.get("name")
+        if spell_name and spell_name not in self.discovered_data["entdeckte_zauber"]:
+            self.discovered_data["entdeckte_zauber"][spell_name] = spell_data
+            self.save_discovered_data()
+            
+    def unlock_with_key(self, key: str) -> List[str]:
+        unlock_info = self.predefined_data.get("freischalt_codes", {}).get(key)
+        if not unlock_info:
+            return []
+
+        unlocked_items = []
+        item_name = unlock_info.get("name")
+        item_type = unlock_info.get("type")
+        item_data = unlock_info.get("data")
+        
+        if item_type == "element" and item_name not in self.discovered_secondary_elements:
+            self.add_discovered_element(item_name)
+            unlocked_items.append(item_name)
+        elif item_type == "spell" and item_name not in self.discovered_spells:
+            self.add_discovered_spell(item_data)
+            unlocked_items.append(item_name)
+        
+        if unlocked_items:
+            messagebox.showinfo("Erfolg", f"Folgende Elemente/Zauber wurden freigeschaltet:\n{', '.join(unlocked_items)}")
+            self.unlock_entry.delete(0, tk.END)
+            self.update_displays()
+        else:
+            messagebox.showinfo("Hinweis", "Dieser Code schaltet keine neuen Elemente/Zauber frei.")
+
+    def reset_discovered_data(self):
+        self.discovered_data = {
+            "entdeckte_elemente": [],
+            "entdeckte_zauber": {}
+        }
+        self.save_discovered_data()
+
+    # --- UI Setup ---
     def setup_ui(self):
         self.root.configure(fg_color=THEME_COLORS['background'])
         main_frame = ctk.CTkFrame(self.root, fg_color="transparent")
@@ -128,12 +262,39 @@ class MagicWorkshop:
         self.elements_scroll = ctk.CTkScrollableFrame(self.left_frame, fg_color="transparent")
         self.elements_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
+        # --- Freischalt-Code Section ---
+        unlock_frame = ctk.CTkFrame(self.elements_scroll, fg_color=THEME_COLORS['frame_bg'], corner_radius=12, border_color=THEME_COLORS['border'], border_width=1)
+        unlock_frame.pack(fill="x", padx=5, pady=(0, 20))
+        
+        unlock_title = ctk.CTkLabel(unlock_frame, text="🔓 Freischalt-Code", font=ctk.CTkFont(family="Roboto", weight="bold"), text_color=THEME_COLORS['text_main'])
+        unlock_title.pack(anchor="w", padx=10, pady=(10, 5))
+        
+        self.unlock_entry = ctk.CTkEntry(unlock_frame, placeholder_text="Code eingeben", width=250)
+        self.unlock_entry.pack(padx=10, pady=5, fill="x")
+        
+        unlock_btn = ctk.CTkButton(unlock_frame, text="Freischalten", command=self.unlock_item, fg_color=THEME_COLORS['button_main'], hover_color=THEME_COLORS['button_hover'], text_color=THEME_COLORS['text_dark'])
+        unlock_btn.pack(padx=10, pady=5, fill="x")
+        # --- End Freischalt-Code Section ---
+        
+        # --- Eigener Baustein Section ---
+        custom_frame = ctk.CTkFrame(self.elements_scroll, fg_color=THEME_COLORS['frame_bg'], corner_radius=12, border_color=THEME_COLORS['border'], border_width=1)
+        custom_frame.pack(fill="x", padx=5, pady=(0, 20))
+
+        custom_title = ctk.CTkLabel(custom_frame, text="✍️ Eigener Baustein", font=ctk.CTkFont(family="Roboto", weight="bold"), text_color=THEME_COLORS['text_main'])
+        custom_title.pack(anchor="w", padx=10, pady=(10, 5))
+
+        self.custom_input_entry = ctk.CTkEntry(custom_frame, placeholder_text="Bausteinname", width=250)
+        self.custom_input_entry.pack(padx=10, pady=5, fill="x")
+
+        self.create_custom_btn = ctk.CTkButton(custom_frame, text="Erstellen", command=self.create_custom_element, fg_color=THEME_COLORS['button_main'], hover_color=THEME_COLORS['button_hover'], text_color=THEME_COLORS['text_dark'])
+        self.create_custom_btn.pack(padx=10, pady=5, fill="x")
+        # --- End Eigener Baustein Section ---
+        
         base_title = ctk.CTkLabel(self.elements_scroll, text="Basis-Elemente:", font=ctk.CTkFont(family="Roboto", weight="bold"), text_color=THEME_COLORS['text_main'])
         base_title.pack(anchor="w", pady=(0, 10))
         
         self.base_elements_frame = ctk.CTkFrame(self.elements_scroll, fg_color="transparent")
         self.base_elements_frame.pack(fill="x", pady=(0, 20))
-        self.setup_base_elements()
         
         self.secondary_title = ctk.CTkLabel(self.elements_scroll, text="Entdeckte Elemente (0):", font=ctk.CTkFont(family="Roboto", weight="bold"), text_color=THEME_COLORS['text_main'])
         self.secondary_title.pack(anchor="w", pady=(0, 10))
@@ -152,14 +313,12 @@ class MagicWorkshop:
         
         self.effects_frame = ctk.CTkFrame(self.elements_scroll, fg_color="transparent")
         self.effects_frame.pack(fill="x", pady=(0, 20))
-        self.setup_effect_types()
         
         abilities_title = ctk.CTkLabel(self.elements_scroll, text="Fähigkeitsarten:", font=ctk.CTkFont(family="Roboto", weight="bold"), text_color=THEME_COLORS['text_main'])
         abilities_title.pack(anchor="w", pady=(0, 10))
         
         self.abilities_frame = ctk.CTkFrame(self.elements_scroll, fg_color="transparent")
         self.abilities_frame.pack(fill="x")
-        self.setup_ability_types()
         
     def setup_middle_panel(self, parent):
         self.middle_frame = ctk.CTkFrame(parent, fg_color=THEME_COLORS['frame_bg'], corner_radius=15, border_color=THEME_COLORS['border'], border_width=2)
@@ -204,13 +363,6 @@ class MagicWorkshop:
         title = ctk.CTkLabel(self.right_frame, text="📜 Zauber-Details", font=ctk.CTkFont(family="Cinzel", size=18, weight="bold"), text_color=THEME_COLORS['text_main'])
         title.pack(pady=(10, 20))
         
-        creative_label = ctk.CTkLabel(self.right_frame, text="Kreative Einflüsse (Stichw):", font=ctk.CTkFont(family="Roboto", weight="bold"), text_color=THEME_COLORS['text_main'])
-        creative_label.pack(anchor="w", padx=20, pady=(0, 5))
-        
-        self.creative_input = ctk.CTkTextbox(self.right_frame, height=80, fg_color=THEME_COLORS['frame_bg'], text_color=THEME_COLORS['text_light'])
-        self.creative_input.pack(fill="x", padx=20, pady=(0, 10))
-        self.creative_input.insert("0.0", "z.B. 'explosiv, präzise, heimlich' oder 'für Heiler, schwach aber sicher'...")
-        
         self.spell_preview_frame = ctk.CTkFrame(self.right_frame, fg_color=THEME_COLORS['frame_bg'], corner_radius=12, border_color=THEME_COLORS['border'], border_width=1)
         self.spell_preview_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         
@@ -236,7 +388,47 @@ class MagicWorkshop:
         
         self.reset_btn = ctk.CTkButton(button_frame2, text="🔄 Alles zurücksetzen", command=self.reset_all, fg_color=THEME_COLORS['button_main'], hover_color=THEME_COLORS['button_hover'], text_color=THEME_COLORS['text_dark'])
         self.reset_btn.pack(expand=True)
+
+    def create_custom_element(self):
+        element_name = self.custom_input_entry.get().strip()
+        if not element_name:
+            messagebox.showwarning("Warnung", "Bitte geben Sie einen Namen für den Baustein ein!")
+            return
+            
+        item_data = {'name': element_name, 'type': 'custom_input'}
+        self.add_to_experiment(item_data)
+        self.custom_input_entry.delete(0, tk.END)
+
+    def unlock_item(self):
+        key = self.unlock_entry.get().strip()
+        if not key:
+            messagebox.showwarning("Warnung", "Bitte geben Sie einen Freischalt-Code ein!")
+            return
+
+        unlock_info = self.predefined_data.get("freischalt_codes", {}).get(key)
+        if not unlock_info:
+            messagebox.showerror("Fehler", "Ungültiger Freischalt-Code.")
+            return
+
+        unlocked_items = []
+        item_name = unlock_info.get("name")
+        item_type = unlock_info.get("type")
+        item_data = unlock_info.get("data")
         
+        if item_type == "element" and item_name not in self.discovered_secondary_elements:
+            self.add_discovered_element(item_name)
+            unlocked_items.append(item_name)
+        elif item_type == "spell" and item_name not in self.discovered_spells:
+            self.add_discovered_spell(item_data)
+            unlocked_items.append(item_name)
+        
+        if unlocked_items:
+            messagebox.showinfo("Erfolg", f"Folgende Elemente/Zauber wurden freigeschaltet:\n{', '.join(unlocked_items)}")
+            self.unlock_entry.delete(0, tk.END)
+            self.update_displays()
+        else:
+            messagebox.showinfo("Hinweis", "Dieser Code schaltet keine neuen Elemente/Zauber frei.")
+
     def create_draggable_item(self, parent, item_data):
         item_frame = ctk.CTkFrame(parent, fg_color=THEME_COLORS['button_main'], corner_radius=12)
         
@@ -245,6 +437,8 @@ class MagicWorkshop:
             label_text = f"🔮 {item_data['name']}"
         elif item_data['type'] == 'element':
             label_text = f"{self.get_component_emoji(item_data)} {item_data['name']}"
+        elif item_data['type'] == 'custom_input':
+            label_text = f"✍️ {item_data['name']}"
         else:
             label_text = f"{self.get_component_emoji(item_data)} {item_data['name']}"
             
@@ -270,6 +464,8 @@ class MagicWorkshop:
             label_text = f"🔮 {item_data['name']}"
         elif item_data['type'] == 'element':
             label_text = f"{self.get_component_emoji(item_data)} {item_data['name']}"
+        elif item_data['type'] == 'custom_input':
+            label_text = f"✍️ {item_data['name']}"
         else:
             label_text = f"{self.get_component_emoji(item_data)} {item_data['name']}"
         
@@ -320,35 +516,25 @@ class MagicWorkshop:
         pass
 
     def setup_base_elements(self):
+        for widget in self.base_elements_frame.winfo_children():
+            widget.destroy()
         for element in self.base_elements:
             item_data = {'name': element, 'type': 'element'}
             item_frame = self.create_draggable_item(self.base_elements_frame, item_data)
             item_frame.pack(fill="x", padx=5, pady=5)
             
     def setup_effect_types(self):
-        effects = [
-            ('Projektil', '🏹'),
-            ('Aura/Fläche', '🌟'),
-            ('Verstärkung', '💪'),
-            ('Erschaffung', '🗿'),
-            ('Transformation', '🔄'),
-            ('Kontrolle', '🎮')
-        ]
-        
-        for effect, emoji in effects:
+        for widget in self.effects_frame.winfo_children():
+            widget.destroy()
+        for effect, emoji in self.effect_types:
             item_data = {'name': effect, 'type': 'effect'}
             item_frame = self.create_draggable_item(self.effects_frame, item_data)
             item_frame.pack(fill="x", padx=5, pady=5)
             
     def setup_ability_types(self):
-        abilities = [
-            ('Kampf-Manöver', '⚔️'),
-            ('Defensiv-Haltung', '🛡️'),
-            ('Unterstützung', '🤝'),
-            ('Taktik', '♟️')
-        ]
-        
-        for ability, emoji in abilities:
+        for widget in self.abilities_frame.winfo_children():
+            widget.destroy()
+        for ability, emoji in self.ability_types:
             item_data = {'name': ability, 'type': 'ability'}
             item_frame = self.create_draggable_item(self.abilities_frame, item_data)
             item_frame.pack(fill="x", padx=5, pady=5)
@@ -357,9 +543,6 @@ class MagicWorkshop:
         self.experiment_components.append(item_data)
         self.update_experiment_display()
         
-        if len(self.experiment_components) >= 2:
-            self.process_experiment_threaded()
-            
     def update_experiment_display(self):
         for widget in self.components_frame.winfo_children():
             widget.destroy()
@@ -410,6 +593,8 @@ class MagicWorkshop:
             return ability_emojis.get(comp['name'], '✨')
         elif comp['type'] == 'spell':
             return '🔮'
+        elif comp['type'] == 'custom_input':
+            return '✍️'
         return '❓'
         
     def remove_from_experiment(self, index: int):
@@ -482,64 +667,109 @@ class MagicWorkshop:
         
     def _process_experiment_thread(self):
         try:
+            element_components = [c for c in self.experiment_components if c['type'] == 'element']
+            
+            new_item_data = None
+            status_message = ""
+            status_color = "red"
+            used_components = self.experiment_components[:] # Make a copy
+
+            # Scenario 1: Check for predefined element combinations (exactly 2 elements)
+            if len(element_components) == 2 and not any(c['type'] in ['spell', 'effect', 'ability', 'custom_input'] for c in self.experiment_components):
+                sorted_components = sorted([c['name'] for c in element_components])
+                key = '+'.join(sorted_components)
+                predefined = self.predefined_data.get("element_kombinationen", {}).get(key)
+                
+                if predefined:
+                    if predefined['name'] not in self.discovered_secondary_elements:
+                        self.discovered_secondary_elements.add(predefined['name'])
+                        self.add_discovered_element(predefined['name'])
+                        self.element_emojis[predefined['name']] = predefined['emoji']
+                        
+                        new_item_data = {'name': predefined['name'], 'type': 'element'}
+                        status_message = f"🎉 Neues Element entdeckt!\n{predefined['emoji']} {predefined['name']}"
+                        status_color = "green"
+                    else:
+                        status_message = f"Dieses Element wurde bereits entdeckt: {predefined['name']}"
+                        status_color = "yellow"
+                else:
+                    raise Exception('Ungültige Kombination. Pre-defined Kombinationen benötigen genau 2 Basis- oder Entdeckte-Elemente.')
+            
+                # Update experiment components based on predefined result
+                if new_item_data:
+                    temp_list = self.experiment_components.copy()
+                    for item_to_remove in element_components:
+                        temp_list.remove(item_to_remove)
+                    temp_list.append(new_item_data)
+                    self.experiment_components = temp_list
+                else:
+                    # If element was already discovered, just remove the two used components
+                    temp_list = self.experiment_components.copy()
+                    for item_to_remove in element_components:
+                        temp_list.remove(item_to_remove)
+                    self.experiment_components = temp_list
+                
+                self.root.after(0, lambda: self.status_label.configure(text=status_message, text_color=status_color))
+                self.root.after(0, self.update_displays)
+                self.root.after(0, self.update_experiment_display)
+                return
+            
+            # All other AI-based scenarios (spells, abilities, custom elements)
+            if not self.api_key:
+                raise Exception('KI-API nicht verfügbar. Bitte API-Schlüssel eingeben und testen.')
+                
             component_types = [c['type'] for c in self.experiment_components]
             has_spell = 'spell' in component_types
             has_element = 'element' in component_types
             has_effect = 'effect' in component_types
             has_ability = 'ability' in component_types
-            num_elements = len([c for c in self.experiment_components if c['type'] == 'element'])
+            has_custom = 'custom_input' in component_types
             num_spells = len([c for c in self.experiment_components if c['type'] == 'spell'])
-            
-            if num_elements >= 2 and not has_effect and not has_ability and not has_spell:
-                sorted_components = sorted([c['name'] for c in self.experiment_components if c['type'] == 'element'])
-                key = '+'.join(sorted_components)
-                predefined = self.predefined_combinations.get(key)
+            num_elements = len([c for c in self.experiment_components if c['type'] == 'element'])
+
+            if num_spells >= 2 and not has_element and not has_effect and not has_ability and not has_custom:
+                result_type = 'spell_combination'
+            elif has_effect:
+                result_type = 'spell'
+            elif has_ability:
+                result_type = 'ability'
+            elif num_elements > 0 or has_custom:
+                result_type = 'element'
+            else:
+                raise Exception('Ungültige Kombination. Bitte fügen Sie Elemente, Zauber oder Wirkungsarten hinzu.')
                 
-                if predefined and predefined['name'] not in self.discovered_secondary_elements:
-                    self.discovered_secondary_elements.add(predefined['name'])
-                    self.element_emojis[predefined['name']] = predefined['emoji']
-                    
-                    self.root.after(0, lambda: self.status_label.configure(
-                        text=f"🎉 Neues Element entdeckt!\n{predefined['emoji']} {predefined['name']}", 
-                        text_color="green"))
-                    self.root.after(0, self.update_displays)
-                else:
-                    if not self.api_key:
-                        raise Exception('KI-API nicht verfügbar. Bitte API-Schlüssel eingeben und testen.')
-                    result = self._generate_with_ai(self.experiment_components, 'element')
+            result = self._generate_with_ai(used_components, result_type)
+            new_item_data = {'name': result['name'], 'type': result['type']}
+            
+            if result_type == 'element':
+                if result['name'] not in self.discovered_secondary_elements:
                     self.discovered_secondary_elements.add(result['name'])
+                    self.add_discovered_element(result['name'])
                     if 'emoji' in result:
                         self.element_emojis[result['name']] = result['emoji']
-                    
-                    self.root.after(0, lambda: self.status_label.configure(
-                        text=f"🎉 Neues Element entdeckt!\n{result.get('emoji', '🔮')} {result['name']}", 
-                        text_color="green"))
-                    self.root.after(0, self.update_displays)
-                    
-            else:
-                if not self.api_key:
-                    raise Exception('KI-API nicht verfügbar. Bitte API-Schlüssel eingeben und testen.')
-                    
-                if num_spells >= 2 and not has_element and not has_effect and not has_ability:
-                    result_type = 'spell_combination'
-                elif has_effect:
-                    result_type = 'spell'
-                elif has_ability:
-                    result_type = 'ability'
+                
+                    status_message = f"🎉 Neues Element entdeckt!\n{result.get('emoji', '🔮')} {result['name']}"
+                    status_color = "green"
                 else:
-                    result_type = 'spell'
-                    
-                result = self._generate_with_ai(self.experiment_components, result_type)
+                    status_message = f"Dieses Element wurde bereits entdeckt: {result['name']}"
+                    status_color = "yellow"
+            else: # spell or ability
                 self.discovered_spells[result['name']] = result
+                self.add_discovered_spell(result)
                 self.current_spell = result
                 
                 self.root.after(0, lambda: self.display_spell(result))
-                self.root.after(0, self.update_displays)
                 self.root.after(0, lambda: self.export_btn.configure(state="normal"))
-                self.root.after(0, lambda: self.status_label.configure(
-                    text=f"✨ Neue {'Zauber' if result_type != 'ability' else 'Fähigkeit'} entdeckt!\n🔮 {result['name']}", 
-                    text_color="green"))
-                    
+                status_message = f"✨ Neue {'Zauber' if result_type != 'ability' else 'Fähigkeit'} entdeckt!\n🔮 {result['name']}"
+                status_color = "green"
+
+            # In all AI-based cases, we replace all components with the new one.
+            self.experiment_components = [new_item_data]
+            
+            self.root.after(0, lambda: self.status_label.configure(text=status_message, text_color=status_color))
+            self.root.after(0, self.update_displays)
+            self.root.after(0, self.update_experiment_display)
+            
         except Exception as e:
             print(f"Experiment-Fehler: {str(e)}")
             self.root.after(0, lambda: self.status_label.configure(
@@ -548,11 +778,17 @@ class MagicWorkshop:
             self.root.after(0, lambda: self.process_btn.configure(state="normal"))
             
     def _generate_with_ai(self, components: List[Dict], result_type: str) -> Dict:
-        creative_input = self.creative_input.get("1.0", tk.END).strip()
-        if creative_input.startswith("z.B."):
-            creative_input = ""
-            
-        component_names = ', '.join([f"{c['name']} ({c['type']})" for c in components])
+        creative_input = ""
+        component_names = []
+        bausteine = []
+        for c in components:
+            if c['type'] == 'custom_input':
+                creative_input += f"Stichwort: {c['name']}. "
+            else:
+                component_names.append(f"{c['name']} ({c['type']})")
+                bausteine.append(c['name'])
+        
+        component_names_str = ', '.join(component_names)
         
         level = max(0, len(components) - 1) if result_type != 'spell_combination' else sum(
             self.discovered_spells.get(c['name'], {}).get('level', 1) 
@@ -568,7 +804,7 @@ Systemregeln:
 - Zauber sind magische Effekte, Fähigkeiten sind nicht-magische, kampfspezifische Aktionen.
 - Alle Würfel werden gleichzeitig am Anfang der Runde gewürfelt. Reaktive Effekte müssen sich auf diese initialen Würfe beziehen.
 - Wenn zwei identische Zauber kombiniert werden, entsteht eine stärkere Version dieses Zaubers.
-Komponenten für Experiment: {component_names}
+Komponenten für Experiment: {component_names_str}
 Kreative Einflüsse: {creative_input}
 Aufgabe: Erschaffe einen neuen {'Zauber' if result_type != 'ability' else 'Fähigkeit'} basierend auf den Komponenten.
 Antwortformat (gib NUR das JSON zurück):
@@ -624,7 +860,7 @@ Antwortformat (gib NUR das JSON zurück):
                     
                 ai_response = data['candidates'][0]['content']['parts'][0]['text'].strip()
                 
-                import re
+                
                 json_match = re.search(r'\{[\s\S]*\}', ai_response)
                 if not json_match:
                     print('KI-Antwort enthält kein gültiges JSON-Objekt.')
@@ -633,6 +869,8 @@ Antwortformat (gib NUR das JSON zurück):
                 ai_response = json_match.group(0)
                 generated_data = json.loads(ai_response)
                 
+                generated_data['bausteine'] = bausteine
+
                 if result_type != 'spell_combination':
                     generated_data['level'] = level
                     generated_data['mana_kosten'] = mana_cost
@@ -665,6 +903,7 @@ Antwortformat (gib NUR das JSON zurück):
         try:
             result = self._generate_with_ai(self.experiment_components, 'spell')
             self.discovered_spells[result['name']] = result
+            self.add_discovered_spell(result)
             self.current_spell = result
             
             self.root.after(0, lambda: self.display_spell(result))
@@ -681,7 +920,10 @@ Antwortformat (gib NUR das JSON zurück):
             self.root.after(0, lambda: self.generate_btn.configure(state="normal"))
             
     def display_spell(self, spell: Dict):
-        bausteine_str = ', '.join(f'"{b}"' for b in spell.get('bausteine', [])) if spell.get('bausteine') else 'Keine Bausteine'
+        # Bausteine aus dem Zauber-Objekt holen, ansonsten eine leere Liste verwenden
+        bausteine = spell.get('bausteine', [])
+        # Prüfen, ob die Liste nicht leer ist, bevor sie gejoint wird
+        bausteine_str = ', '.join(f'"{b}"' for b in bausteine) if bausteine else 'Keine Bausteine'
         
         display_text = f"""╔══════════════════════════════════════════════════════════════
 {'🧙‍♂️ ZAUBER' if spell.get('type') == 'spell' else '⚔️ FÄHIGKEIT'}: {spell.get('name', 'Unbenannt')} (Level {spell.get('level', 1)})
@@ -713,6 +955,11 @@ Antwortformat (gib NUR das JSON zurück):
         self.spell_display.insert("0.0", display_text)
         
     def update_displays(self):
+        self.discovered_secondary_elements = set(self.discovered_data.get("entdeckte_elemente", []))
+        self.discovered_spells = self.discovered_data.get("entdeckte_zauber", {})
+        self.setup_base_elements()
+        self.setup_effect_types()
+        self.setup_ability_types()
         self.update_secondary_elements()
         self.update_discovered_spells()
         
@@ -723,7 +970,7 @@ Antwortformat (gib NUR das JSON zurück):
         count = len(self.discovered_secondary_elements)
         self.secondary_title.configure(text=f"Entdeckte Elemente ({count}):")
         
-        for element_name in self.discovered_secondary_elements:
+        for element_name in sorted(list(self.discovered_secondary_elements)):
             item_data = {'name': element_name, 'type': 'element'}
             item_frame = self.create_draggable_item(self.secondary_elements_frame, item_data)
             item_frame.pack(fill="x", padx=5, pady=5)
@@ -735,7 +982,7 @@ Antwortformat (gib NUR das JSON zurück):
         count = len(self.discovered_spells)
         self.spells_title.configure(text=f"Entdeckte Zauber ({count}):")
         
-        for spell_name, spell_data in self.discovered_spells.items():
+        for spell_name, spell_data in sorted(self.discovered_spells.items()):
             item_data = {'name': spell_name, 'type': 'spell'}
             item_frame = self.create_draggable_item(self.spells_frame, item_data)
             item_frame.bind("<Button-1>", lambda event, data=spell_data: self.select_spell(data))
@@ -784,6 +1031,7 @@ Antwortformat (gib NUR das JSON zurück):
                 
             self.current_spell = spell
             self.discovered_spells[spell['name']] = spell
+            self.add_discovered_spell(spell)
             self.display_spell(spell)
             self.update_displays()
             
@@ -800,14 +1048,15 @@ Antwortformat (gib NUR das JSON zurück):
             self.current_spell = None
             self.discovered_secondary_elements.clear()
             self.discovered_spells.clear()
+            self.reset_discovered_data()
             
             self.update_experiment_display()
             self.update_displays()
             
             self.spell_display.delete("0.0", tk.END)
             self.status_label.configure(text="")
-            self.creative_input.delete("0.0", tk.END)
-            self.creative_input.insert("0.0", "z.B. 'explosiv, präzise, heimlich' oder 'für Heiler, schwach aber sicher'...")
+            self.custom_input_entry.delete(0, tk.END)
+            self.custom_input_entry.insert(0, "Bausteinname")
             
             self.export_btn.configure(state="disabled")
             if not self.api_key:
